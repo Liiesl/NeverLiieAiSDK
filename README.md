@@ -76,8 +76,8 @@ for event in client.chat_stream(
 ):
     if event["type"] == "content":
         print(event["content"], end="")
-    elif event["type"] == "tool_calls":
-        print("Tool calls:", event["tool_calls"])
+    elif event["type"] == "tool_call":
+        print("Tool call:", event["tool_call"])
 
 client.close()
 ```
