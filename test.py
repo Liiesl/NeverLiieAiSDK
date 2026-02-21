@@ -66,42 +66,49 @@ web_search_tool = {
 }
 
 
-def handle_tool_calls(response, messages, client, model, tavily_api_key):
-    """Handle tool calls from the model and return updated messages."""
-    message = response["choices"][0]["message"]
+def execute_tool_call(function_name, arguments, tavily_api_key):
+    """Execute a tool call and return the result."""
+    if function_name == "web_search":
+        result = tavily_search(arguments.get("query"), api_key=tavily_api_key)
+    else:
+        result = f"Unknown tool: {function_name}"
+    return result
+
+
+def handle_tool_calls(response, messages, client, model, tavily_api_key, max_iterations=10):
+    """Handle tool calls from the model, supporting multiple rounds of tool calls."""
+    current_response = response
     
-    if "tool_calls" not in message:
-        return None, message.get("content", "")
-    
-    print("\n[Executing tool calls...]")
-    
-    # Add assistant message to conversation
-    messages.append(message)
-    
-    # Execute each tool call
-    for tool_call in message["tool_calls"]:
-        function_name = tool_call["function"]["name"]
-        arguments = json.loads(tool_call["function"]["arguments"])
+    for iteration in range(max_iterations):
+        message = current_response["choices"][0]["message"]
         
-        print(f"[Tool: {function_name}] Query: {arguments.get('query', 'N/A')}")
+        if "tool_calls" not in message:
+            return current_response, message.get("content") or ""
         
-        if function_name == "web_search":
-            result = tavily_search(arguments.get("query"), api_key=tavily_api_key)
+        print(f"\n[Executing tool calls... (round {iteration + 1})]")
+        messages.append(message)
+        
+        for tool_call in message["tool_calls"]:
+            function_name = tool_call["function"]["name"]
+            arguments = tool_call["function"]["arguments"]
+            if isinstance(arguments, str):
+                arguments = json.loads(arguments)
+            
+            print(f"[Tool: {function_name}] Query: {arguments.get('query', 'N/A')}")
+            result = execute_tool_call(function_name, arguments, tavily_api_key)
             print(f"[Search result received]")
-        else:
-            result = f"Unknown tool: {function_name}"
+            
+            messages.append({
+                "role": "tool",
+                "tool_call_id": tool_call["id"],
+                "name": function_name,
+                "content": result
+            })
         
-        # Add tool response to conversation
-        messages.append({
-            "role": "tool",
-            "tool_call_id": tool_call["id"],
-            "name": function_name,
-            "content": result
-        })
+        current_response = client.chat(messages=messages, model=model, tools=[web_search_tool])
     
-    # Get final response from model
-    final_response = client.chat(messages=messages, model=model, tools=[web_search_tool])
-    return final_response, final_response["choices"][0]["message"].get("content", "")
+    print(f"\n[Warning: Reached max iterations ({max_iterations})]")
+    return current_response, current_response["choices"][0]["message"].get("content") or ""
 
 
 def main():
@@ -127,8 +134,6 @@ def main():
 
     if args.stream:
         if args.ws:
-            print("=== Streaming with Web Search ===")
-            # Stream with tool support - SDK now handles buffering
             messages = [{"role": "user", "content": args.message}]
             content_buffer = ""
             tool_calls = []
@@ -140,20 +145,14 @@ def main():
                 tool_choice="auto"
             ):
                 if event["type"] == "content":
-                    # Print content in real-time
                     content = event["content"]
                     content_buffer += content
                     print(content, end="", flush=True)
                 elif event["type"] == "tool_call":
-                    # Collect tool calls
                     tool_calls.append(event["tool_call"])
-                    print(f"\n[Tool: {event['tool_call']['function']['name']}]")
+                    print(f"\n[Tool call: {event['tool_call']['function']['name']}]")
             
-            # Execute tool calls if any
-            if tool_calls:
-                print("\n[Executing tool calls...]")
-                
-                # Build assistant message with tool calls
+            while tool_calls:
                 assistant_msg = {
                     "role": "assistant",
                     "content": content_buffer if content_buffer else None,
@@ -161,21 +160,18 @@ def main():
                 }
                 messages.append(assistant_msg)
                 
-                # Execute tool calls
                 for tool_call in tool_calls:
                     function_name = tool_call["function"]["name"]
                     try:
-                        arguments = json.loads(tool_call["function"]["arguments"])
+                        arguments = tool_call["function"]["arguments"]
+                        if isinstance(arguments, str):
+                            arguments = json.loads(arguments)
                     except json.JSONDecodeError:
                         arguments = {}
                     
-                    print(f"[Tool: {function_name}] Query: {arguments.get('query', 'N/A')}")
-                    
-                    if function_name == "web_search":
-                        result = tavily_search(arguments.get("query"), api_key=tavily_api_key)
-                        print(f"[Search result received]")
-                    else:
-                        result = f"Unknown tool: {function_name}"
+                    print(f"\n[Tool: {function_name}] Query: {arguments.get('query', 'N/A')}")
+                    result = execute_tool_call(function_name, arguments, tavily_api_key)
+                    print(f"[Search result received]")
                     
                     messages.append({
                         "role": "tool",
@@ -184,27 +180,24 @@ def main():
                         "content": result
                     })
                 
-                # Get final response
-                print()  # Newline first
+                tool_calls = []
+                content_buffer = ""
+                
                 for event in client.chat_stream(messages=messages, model=args.model, tools=[web_search_tool]):
                     if event["type"] == "content":
                         print(event["content"], end="", flush=True)
+                        content_buffer += event["content"]
                     elif event["type"] == "tool_call":
+                        tool_calls.append(event["tool_call"])
                         print(f"\n[Tool call: {event['tool_call']['function']['name']}]")
-            else:
-                print() 
+                print()
         else:
-            print("=== Streaming ===")
-            # Simple streaming without tools - SDK yields content events
             for event in client.chat_stream(messages=args.message, model=args.model):
                 if event["type"] == "content":
                     print(event["content"], end="", flush=True)
             print()
     else:
-        print("=== Chat Completion ===")
-        
         if args.ws:
-            # Chat with web search tool
             messages = [{"role": "user", "content": args.message}]
             response = client.chat(
                 messages=messages,
@@ -213,7 +206,6 @@ def main():
                 tool_choice="auto"
             )
             
-            # Check if tool calls were made
             if "tool_calls" in response["choices"][0]["message"]:
                 _, final_content = handle_tool_calls(
                     response, messages, client, args.model, tavily_api_key
@@ -222,7 +214,6 @@ def main():
             else:
                 print(response["choices"][0]["message"]["content"])
         else:
-            # Simple chat without tools (default)
             response = client.chat(messages=args.message, model=args.model)
             print(response["choices"][0]["message"]["content"])
 
