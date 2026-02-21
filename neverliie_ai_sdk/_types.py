@@ -21,6 +21,7 @@ class ToolCall(TypedDict, total=False):
     id: str
     type: str
     function: ToolCallFunction
+    thought_signature: str
 
 
 class Message(TypedDict, total=False):

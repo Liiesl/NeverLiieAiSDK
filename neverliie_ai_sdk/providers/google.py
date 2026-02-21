@@ -1,4 +1,5 @@
 import json
+import os
 from typing import List, Dict, Any, Iterator, Union
 from ._base import BaseProvider
 from .._client import HttpClient
@@ -28,12 +29,15 @@ class Google(BaseProvider):
             # Handle tool_calls from assistant
             if msg.get("tool_calls"):
                 for tool_call in msg["tool_calls"]:
-                    parts.append({
+                    fc_part = {
                         "functionCall": {
                             "name": tool_call["function"]["name"],
                             "args": tool_call["function"].get("arguments", {})
                         }
-                    })
+                    }
+                    if tool_call.get("thought_signature"):
+                        fc_part["thoughtSignature"] = tool_call["thought_signature"]
+                    parts.append(fc_part)
 
             # Handle tool response
             if msg.get("role") == "tool":
@@ -136,7 +140,8 @@ class Google(BaseProvider):
                             "function": {
                                 "name": fc.get("name"),
                                 "arguments": fc.get("args", {})
-                            }
+                            },
+                            "thought_signature": part.get("thoughtSignature")
                         })
 
         usage = response.get("usageMetadata", {})
@@ -226,7 +231,6 @@ class Google(BaseProvider):
                             fc = part["functionCall"]
                             tool_id = f"call_{fc.get('name', 'unknown')}"
                             
-                            # Avoid emitting duplicate tool calls
                             if tool_id not in tool_calls_emitted:
                                 tool_calls_emitted.add(tool_id)
                                 yield {
@@ -237,7 +241,8 @@ class Google(BaseProvider):
                                         "function": {
                                             "name": fc.get("name"),
                                             "arguments": fc.get("args", {})
-                                        }
+                                        },
+                                        "thought_signature": part.get("thoughtSignature")
                                     },
                                     "finish_reason": "tool_calls"
                                 }
