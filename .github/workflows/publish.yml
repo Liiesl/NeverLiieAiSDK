@@ -16,6 +16,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Update version from release tag
+        run: |
+          # Get the release tag and remove 'v' prefix if present
+          TAG="${{ github.event.release.tag_name }}"
+          VERSION="${TAG#v}"
+          
+          # Update version in pyproject.toml
+          sed -i "s/^version = .*/version = \"$VERSION\"/" pyproject.toml
+          
+          echo "Updated version to: $VERSION"
+          cat pyproject.toml
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
