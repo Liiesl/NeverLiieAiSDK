@@ -88,11 +88,10 @@ class OpenAI(BaseProvider):
             delta = chunk.get("choices", [{}])[0].get("delta", {})
             finish_reason = chunk.get("choices", [{}])[0].get("finish_reason")
 
-            # Handle regular content
             if delta.get("content"):
                 yield {
                     "type": "content",
-                    "content": delta["content"]
+                    "content": self._normalize_streaming_content(delta["content"])
                 }
 
             # Handle tool calls - accumulate them
