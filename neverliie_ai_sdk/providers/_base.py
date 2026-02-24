@@ -39,3 +39,16 @@ class BaseProvider(ABC):
         if isinstance(messages, str):
             return [{"role": "user", "content": messages}]
         return messages
+
+    def _normalize_streaming_content(self, content) -> str:
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            parts = []
+            for part in content:
+                if isinstance(part, dict) and part.get("type") == "text":
+                    parts.append(part.get("text", ""))
+                elif isinstance(part, str):
+                    parts.append(part)
+            return "".join(parts)
+        return ""
