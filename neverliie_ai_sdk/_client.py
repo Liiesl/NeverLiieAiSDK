@@ -48,6 +48,21 @@ class HttpClient:
         
         return response.json()
 
+    def get(
+        self,
+        endpoint: str,
+        headers: Dict[str, str] = None,
+    ) -> Dict[str, Any]:
+        url = self._build_url(endpoint)
+        final_headers = {**self.default_headers, **(headers or {})}
+        
+        response = self.session.get(url, headers=final_headers, timeout=120)
+        
+        if not response.ok:
+            self._handle_error(response)
+        
+        return response.json()
+
     def post_stream(
         self,
         endpoint: str,

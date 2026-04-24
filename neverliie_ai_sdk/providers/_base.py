@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import List, Dict, Any, Iterator, Union
-from .._types import Message, ChatCompletionResponse, Tools, ToolChoice, StreamingEvent
+from .._types import Message, ChatCompletionResponse, Tools, ToolChoice, StreamingEvent, ModelsResponse
 
 
 class BaseProvider(ABC):
@@ -33,6 +33,10 @@ class BaseProvider(ABC):
         tool_choice: ToolChoice = None,
         **kwargs
     ) -> Iterator[StreamingEvent]:
+        pass
+
+    @abstractmethod
+    def get_models(self) -> ModelsResponse:
         pass
 
     def _normalize_messages(self, messages: Union[str, List[Message]]) -> List[Message]:

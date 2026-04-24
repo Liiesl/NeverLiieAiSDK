@@ -80,3 +80,15 @@ ChatMessages = Union[str, List[Message]]
 ToolChoice = Union[Literal["auto", "none", "required"], Dict[str, Any]]
 
 Tools = List[Tool]
+
+
+class Model(TypedDict, total=False):
+    id: str
+    object: str
+    created: int
+    owned_by: str
+
+
+class ModelsResponse(TypedDict):
+    object: str
+    data: List[Model]

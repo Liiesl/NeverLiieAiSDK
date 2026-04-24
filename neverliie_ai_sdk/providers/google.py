@@ -3,7 +3,7 @@ import os
 from typing import List, Dict, Any, Iterator, Union
 from ._base import BaseProvider
 from .._client import HttpClient
-from .._types import Message, ChatCompletionResponse, Tools, ToolChoice, StreamingEvent
+from .._types import Message, ChatCompletionResponse, Tools, ToolChoice, StreamingEvent, ModelsResponse
 
 
 class Google(BaseProvider):
@@ -246,6 +246,31 @@ class Google(BaseProvider):
                                     },
                                     "finish_reason": "tool_calls"
                                 }
+
+    def get_models(self) -> ModelsResponse:
+        endpoint = f"/models?key={self.api_key}"
+        response = self._client.get(endpoint)
+
+        # Normalize Google response to OpenAI-compatible format
+        models_data = response.get("models", [])
+        normalized_data = []
+        for model in models_data:
+            model_name = model.get("name", "")
+            # Google returns "models/model-name", strip the "models/" prefix
+            model_id = model_name.replace("models/", "") if model_name.startswith("models/") else model_name
+            normalized_data.append({
+                "id": model_id,
+                "object": "model",
+                "created": None,
+                "owned_by": "google",
+                "name": model.get("displayName", model_id),
+                "description": model.get("description"),
+            })
+
+        return {
+            "object": "list",
+            "data": normalized_data,
+        }
 
     def close(self):
         self._client.close()

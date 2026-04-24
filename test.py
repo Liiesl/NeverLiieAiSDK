@@ -111,19 +111,44 @@ def handle_tool_calls(response, messages, client, model, tavily_api_key, max_ite
     return current_response, current_response["choices"][0]["message"].get("content") or ""
 
 
+def test_get_models(client):
+    """Test the get_models method."""
+    print("\n=== Testing get_models() ===")
+    try:
+        models = client.get_models()
+        print(f"Response object: {models.get('object', 'N/A')}")
+        print(f"Total models: {len(models.get('data', []))}")
+        print("\nAvailable models:")
+        for model in models.get('data', [])[:10]:  # Show first 10 models
+            model_id = model.get('id', 'N/A')
+            owned_by = model.get('owned_by', 'N/A')
+            print(f"  - {model_id} (by {owned_by})")
+        if len(models.get('data', [])) > 10:
+            print(f"  ... and {len(models.get('data', [])) - 10} more")
+        return True
+    except Exception as e:
+        print(f"Error getting models: {e}")
+        return False
+
+
 def main():
     parser = argparse.ArgumentParser(description="Test Mistral API with Tavily Web Search")
     parser.add_argument("--api-key", required=True, help="Mistral API key")
-    parser.add_argument("--message", required=True, help="Message to send")
+    parser.add_argument("--message", help="Message to send")
     parser.add_argument("--model", default="mistral-small-latest", help="Model name")
     parser.add_argument("--stream", action="store_true", help="Use streaming")
     parser.add_argument("--tavily-key", default=None, help="Tavily API key (required with --ws)")
     parser.add_argument("--ws", action="store_true", help="Enable web search with Tavily")
+    parser.add_argument("--list-models", action="store_true", help="List available models")
     args = parser.parse_args()
 
     # Validate: if --ws is used, --tavily-key is required
     if args.ws and not args.tavily_key:
         parser.error("--tavily-key is required when using --ws")
+    
+    # Validate: either --message or --list-models is required
+    if not args.message and not args.list_models:
+        parser.error("either --message or --list-models is required")
 
     client = Google(api_key=args.api_key)
     # client = Mistral(api_key=args.api_key)  
@@ -131,6 +156,12 @@ def main():
     # client = OpenAICompatible(api_key=args.api_key base_url="https://integrate.api.nvidia.com/v1")  # Example for Nvidia NIM with OpenAI-compatible interface
     # client = Anthropic(api_key=args.api_key)
     tavily_api_key = args.tavily_key
+
+    # Test get_models if requested
+    if args.list_models:
+        test_get_models(client)
+        client.close()
+        return
 
     if args.stream:
         if args.ws:

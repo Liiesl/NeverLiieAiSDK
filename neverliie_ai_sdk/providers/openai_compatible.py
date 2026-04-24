@@ -2,7 +2,7 @@ import json
 from typing import List, Dict, Any, Iterator, Union
 from ._base import BaseProvider
 from .._client import HttpClient
-from .._types import Message, ChatCompletionResponse, Tools, ToolChoice, StreamingEvent
+from .._types import Message, ChatCompletionResponse, Tools, ToolChoice, StreamingEvent, ModelsResponse
 
 
 class OpenAICompatible(BaseProvider):
@@ -149,6 +149,9 @@ class OpenAICompatible(BaseProvider):
                         "tool_call": tool_call,
                         "finish_reason": "tool_calls"
                     }
+
+    def get_models(self) -> ModelsResponse:
+        return self._client.get("/models")
 
     def close(self):
         self._client.close()

@@ -1,4 +1,4 @@
-from .providers import OpenAI, Anthropic, Google, Mistral, OpenAICompatible
+from .providers import OpenAI, Anthropic, Google, Mistral, OpenAICompatible, AnthropicCompatible
 from ._exceptions import APIError, RateLimitError, AuthenticationError, NotFoundError
 from ._types import (
     Tool, ToolFunction, ToolCall, ToolCallFunction, Tools, ToolChoice, 
@@ -11,6 +11,7 @@ __all__ = [
     "Google",
     "Mistral",
     "OpenAICompatible",
+    "AnthropicCompatible",
     "APIError",
     "RateLimitError",
     "AuthenticationError",
