@@ -12,7 +12,9 @@ A minimal, unified Python SDK for interacting with multiple AI/LLM providers. Op
 - **Minimal dependencies** - Only requires `requests>=2.28.0`
 - **Streaming responses** - Real-time content with SSE support
 - **Tool calling** - Function/tool calling across all providers
+- **Model listing** - Query available models from any provider via `get_models()`
 - **OpenAI-compatible** - Generic provider for any OpenAI API-compatible endpoint
+- **Anthropic-compatible** - Generic provider for any Anthropic API-compatible endpoint
 - **Type safety** - Full TypedDict support for messages, tools, and responses
 - **Nuitka optimized** - Designed for compiling to standalone executables
 
@@ -42,6 +44,7 @@ client.close()
 | Google | `from neverliie_ai_sdk import Google` | gemini-1.5-flash | https://generativelanguage.googleapis.com/v1beta |
 | Mistral | `from neverliie_ai_sdk import Mistral` | mistral-small-latest | https://api.mistral.ai/v1 |
 | OpenAI Compatible | `from neverliie_ai_sdk import OpenAICompatible` | (configurable) | (configurable) |
+| Anthropic Compatible | `from neverliie_ai_sdk import AnthropicCompatible` | (configurable) | (configurable) |
 
 ## Usage Examples
 
@@ -142,6 +145,40 @@ print(response["choices"][0]["message"]["content"])
 client.close()
 ```
 
+### Anthropic-Compatible Endpoints
+
+```python
+from neverliie_ai_sdk import AnthropicCompatible
+
+# For any Anthropic Messages API-compatible endpoint
+client = AnthropicCompatible(
+    base_url="https://api.anthropic.com/v1",
+    api_key="your-api-key"
+)
+
+response = client.chat(
+    messages="Hello!",
+    model="claude-3-haiku-20240307"
+)
+print(response["choices"][0]["message"]["content"])
+
+client.close()
+```
+
+### Listing Available Models
+
+```python
+from neverliie_ai_sdk import Google
+
+client = Google(api_key="your-api-key")
+
+models = client.get_models()
+for model in models["data"][:10]:
+    print(f"{model['id']} - {model.get('name', 'N/A')}")
+
+client.close()
+```
+
 ## API Reference
 
 ### Client Initialization
@@ -169,6 +206,25 @@ Send a chat completion request.
 Send a streaming chat completion request.
 
 **Returns:** Iterator of event dicts with `type` field ("content" or "tool_calls")
+
+#### `get_models()`
+
+List available models from the provider. Returns a normalized OpenAI-compatible response format.
+
+**Returns:** Dict with `object` and `data` fields, where each model contains `id`, `object`, `created`, and `owned_by`.
+
+```python
+from neverliie_ai_sdk import Mistral
+
+client = Mistral(api_key="your-api-key")
+models = client.get_models()
+
+print(f"Total models: {len(models['data'])}")
+for model in models['data'][:5]:
+    print(f"  - {model['id']} (by {model['owned_by']})")
+
+client.close()
+```
 
 #### `close()`
 
